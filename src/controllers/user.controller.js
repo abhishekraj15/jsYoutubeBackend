@@ -10,7 +10,7 @@ const generateAccessAndrefreshTokens = async (userId) => {
     const user = await User.findById(userId);
 
     const accessToken = user.generateAccessToken();
-    const refreshToken = user.generaterefreshToken();
+    const refreshToken = user.generateRefreshToken();
 
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
@@ -127,9 +127,10 @@ const loginUser = asyncHandler(async (req, res) => {
     user._id
   );
 
-  const loggedInUser = User.findById(user._id).select(
+  const loggedInUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
+  console.log("🚀 ~ loginUser ~ loggedInUser:", loggedInUser);
 
   const options = {
     httpOnly: true,
@@ -173,8 +174,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .clearCookies("accessToken", options)
-    .clearCookies("refreshToken", options)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "User Logout Succesfully"));
 });
 
