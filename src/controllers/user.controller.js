@@ -21,6 +21,7 @@ const generateAccessAndrefreshTokens = async (userId) => {
   }
 };
 
+// Register Controller
 const registerUser = asyncHandler(async (req, res) => {
   //get user details fron frontend
   //validation - not empty
@@ -84,7 +85,7 @@ const registerUser = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, createdUser, "User Registered Successfully"));
 });
-
+// Login Controller
 const loginUser = asyncHandler(async (req, res) => {
   //req body -> data
   //username or email
@@ -153,7 +154,7 @@ const loginUser = asyncHandler(async (req, res) => {
       )
     );
 });
-
+// Logout Controller
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
@@ -178,7 +179,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "User Logout Succesfully"));
 });
-
+// Refresh AccessToken Controller
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingrefreshToken = req.cookies.refreshToken || req.body;
   if (!incomingrefreshToken) {
