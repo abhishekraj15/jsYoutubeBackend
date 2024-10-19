@@ -251,8 +251,9 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 
 // Fetch Current user
 const getCurrentUser = asyncHandler(async (req, res) => {
-  return res.status(200).json(200, req.user, "Current user fetch successfully");
-  //.json(new ApiResponse(200, req.user, "Current user fetch successfully"));
+  return res
+    .status(200) //.json(200, req.user, "Current user fetch successfully");
+    .json(new ApiResponse(200, req.user, "Current user fetch successfully"));
 });
 
 // Update Profile Data
