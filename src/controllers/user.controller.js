@@ -134,7 +134,6 @@ const loginUser = asyncHandler(async (req, res) => {
   const loggedInUser = await User.findById(user._id).select(
     "-password -refreshToken"
   );
-  console.log("🚀 ~ loginUser ~ loggedInUser:", loggedInUser);
 
   const options = {
     httpOnly: true,
@@ -163,9 +162,12 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        refreshToken: undefined,
+      $unset: {
+        refreshToken: 1, //this remove the field from document
       },
+      // $set: {
+      //   refreshToken: undefined,
+      // },
     },
     {
       new: true,
@@ -344,7 +346,6 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 // Get User channel Deatils
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
-  console.log("🚀 ~ getUserChannelProfile ~ username:", username);
 
   if (!username?.trim()) {
     throw new ApiError(400, "Username is missing.");
@@ -402,7 +403,6 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  console.log("🚀 ~ getUserChannelProfile ~ channel:", channel);
 
   if (!channel?.length) {
     throw new ApiError(404, "Channel does not exist.");
