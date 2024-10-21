@@ -1,15 +1,72 @@
-import mongoose, { Schema } from "mongoose";
+// import mongoose, { Schema } from "mongoose";
+// import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+
+// const videoSchema = new Schema(
+//   {
+//     videoFile: {
+//       type: String, // Cloudinary url
+//       required: true,
+//     },
+//     thumbnail: {
+//       type: String, // Cloudinary url
+//       required: true,
+//     },
+//     title: {
+//       type: String,
+//       required: true,
+//     },
+//     description: {
+//       type: String,
+//       required: true,
+//     },
+//     duration: {
+//       type: Number, // Cloudinary url
+//       required: true,
+//     },
+//     views: {
+//       type: Number,
+//       default: 0,
+//     },
+//     isPublished: {
+//       type: Boolean,
+//       default: true,
+//     },
+//     owner: {
+//       type: Schema.Types.ObjectId,
+//       ref: "User",
+//     },
+//   },
+//   {
+//     timestamps: true,
+//   }
+// );
+
+// videoSchema.plugin(mongooseAggregatePaginate);
+
+// export const Video = mongoose.model("Video", videoSchema);
+
+import { Schema, model } from "mongoose";
 import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const videoSchema = new Schema(
   {
     videoFile: {
-      type: String, // Cloudinary url
+      type: {
+        url: String,
+        public_id: String,
+      },
       required: true,
     },
-    thumbnails: {
-      type: String, // Cloudinary url
+    thumbnail: {
+      type: {
+        url: String,
+        public_id: String,
+      },
       required: true,
+    },
+    owner: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
     title: {
       type: String,
@@ -20,20 +77,16 @@ const videoSchema = new Schema(
       required: true,
     },
     duration: {
-      type: Number, // Cloudinary url
+      type: Number,
       required: true,
     },
     views: {
       type: Number,
-      default: 0,
+      defaultValue: 0,
     },
     isPublished: {
       type: Boolean,
-      default: true,
-    },
-    owner: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
+      defaultValue: false,
     },
   },
   {
@@ -41,6 +94,5 @@ const videoSchema = new Schema(
   }
 );
 
-videoSchema.plugin(mongooseAggregatePaginate)
-
-export const Video = mongoose.model("Video", videoSchema);
+videoSchema.plugin(mongooseAggregatePaginate);
+export const Video = model("Video", videoSchema);
