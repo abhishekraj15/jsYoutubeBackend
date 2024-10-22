@@ -1,21 +1,29 @@
 // import mongoose, { isValidObjectId } from "mongoose";
+import mongoose from "mongoose";
 import { Video } from "../models/video.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { deleteOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 
+// TODO: get video, upload to cloudinary, create video
 const publishAVideo = asyncHandler(async (req, res) => {
-  // TODO: get video, upload to cloudinary, create video
-
   const { title, description } = req.body;
-
   if ([title, description].some((field) => field?.trim() === "")) {
     throw new ApiError(400, "All Fields are required");
   }
 
-  const videoFileLocalPath = req.files?.videoFile[0].path;
-  const thumbnailLocalPath = req.files?.thumbnail[0].path;
+  const videoFilepath = req.files?.videoFile?.[0];
+  if (!videoFilepath) {
+    throw new ApiError(400, "Video File file is required");
+  }
+  const videoFileLocalPath = videoFilepath.path;
+
+  const thumbnailFilePath = req.files?.thumbnail?.[0];
+  if (!thumbnailFilePath) {
+    throw new ApiError(400, "Thumbnail File file is required");
+  }
+  const thumbnailLocalPath = thumbnailFilePath.path;
 
   if (!videoFileLocalPath) {
     throw new ApiError(400, "VideoFileLocalPath is required");
@@ -91,7 +99,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Id not found in params");
   }
 
-  if (!title && !description) {
+  if (!title || !description) {
     throw new ApiError(400, "Title and description are required");
   }
 
@@ -149,31 +157,117 @@ const updateVideo = asyncHandler(async (req, res) => {
 });
 
 //TODO: delete video
-const deleteVideo = asyncHandler(async (req, res) => {
-  //   const variable= req.params.id
-  // Is case m variable ka name kuch bhi likh skte h bs req.params k baad name same hona chahiye I'd ka jo route m ho
-  // const {id} = req.params
+// const deleteVideo = asyncHandler(async (req, res) => {
+//   //   const variable= req.params.id
+//   // Is case m variable ka name kuch bhi likh skte h bs req.params k baad name same hona chahiye I'd ka jo route m ho
+//   // const {id} = req.params
 
+//   const { id } = req.params;
+//   console.log("🚀 ~ deleteVideo ~ videoId:", id);
+
+//   if (!id) {
+//     throw new ApiError(400, "Video id not found in params.!!");
+//   }
+
+//   const video = await Video.findByIdAndDelete(id);
+//   if (!video) {
+//     throw new ApiError(400, "Video not found.");
+//   }
+
+//   return res
+//     .status(200)
+//     .json(new ApiResponse(200, "Video has been deleted.!!"));
+// });
+
+const deleteVideo = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  console.log("🚀 ~ deleteVideo ~ videoId:", id);
 
   if (!id) {
     throw new ApiError(400, "Video id not found in params.!!");
   }
 
-  const video = await Video.findByIdAndDelete(id);
+  const video = await Video.findById(id);
   if (!video) {
     throw new ApiError(400, "Video not found.");
   }
 
+  if (video?.owner.toString() !== req.user?._id.toString()) {
+    throw new ApiError(
+      400,
+      "You can't delete this video as you are not the owner"
+    );
+  }
+
+  const videoDeleted = await Video.findByIdAndDelete(video?._id);
+
+  if (!videoDeleted) {
+    throw new ApiError(400, "Failed to delete the video please try again");
+  }
+
+  await deleteOnCloudinary(video.thumbnail.public_id); // video model has thumbnail public_id stored in it->check videoModel
+  await deleteOnCloudinary(video.videoFile.public_id, "video"); // specify video while deleting video
+
+  // delete video likes
+  // await Like.deleteMany({
+  //   video: id,
+  // });
+
+  // delete video comments
+  // await Comment.deleteMany({
+  //   video: id,
+  // });
+
   return res
     .status(200)
-    .json(new ApiResponse(200, "Video has been deleted.!!"));
+    .json(new ApiResponse(200, {}, "Video has been deleted.!!"));
 });
 
-// const togglePublishStatus = asyncHandler(async (req, res) => {
-//   const { videoId } = req.params;
-// });
+// TogglePublishStatus
+const togglePublishStatus = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    throw new ApiError(400, "Invalid VideoId");
+  }
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(400, "Video not found.");
+  }
+
+  if (video?.owner.toString() !== req.user?._id.toString()) {
+    throw new ApiError(
+      400,
+      "You can't toogle publish status as you are not the owner"
+    );
+  }
+
+  const toggleVideoPublish = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      $set: {
+        isPublished: !video?.isPublished,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  if (!toggleVideoPublish) {
+    throw new ApiError(400, "Failed to toggle video publish status.");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { isPublished: toggleVideoPublish.isPublished },
+        "Video Published successfully."
+      )
+    );
+});
 
 export {
   //getAllVideos,
@@ -181,5 +275,5 @@ export {
   //getVideoById,
   updateVideo,
   deleteVideo,
-  //togglePublishStatus,
+  togglePublishStatus,
 };

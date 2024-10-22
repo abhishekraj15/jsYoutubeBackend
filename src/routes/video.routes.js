@@ -4,7 +4,7 @@ import {
   //getAllVideos,
   //getVideoById,
   publishAVideo,
-  //togglePublishStatus,
+  togglePublishStatus,
   updateVideo,
 } from "../controllers/video.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
@@ -61,5 +61,6 @@ router.route("/delete-video/:id").delete(verifyJWT, deleteVideo);
 router
   .route("/update-video/:videoId")
   .patch(verifyJWT, upload.single("thumbnail"), updateVideo);
+router.route("/toggle/publish/:videoId").patch(verifyJWT, togglePublishStatus);
 
 export default router;

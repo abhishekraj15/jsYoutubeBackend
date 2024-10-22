@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose, { mongo } from "mongoose";
@@ -289,6 +289,13 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   }
 
   // TODO: delete old image - avatar
+  const user = await User.findById(req.user?._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Extract the public ID from the old Cloudinary URL for deletion
+  const avatarToDeleteUrl = user.avatar; // Assuming user.avatar holds the URL of the avatar
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
@@ -296,7 +303,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Error While uploading Avatar");
   }
 
-  const user = await User.findByIdAndUpdate(
+  const updatedUser = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
@@ -308,9 +315,18 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
   ).select("-password");
 
+  if (!updatedUser) {
+    throw new ApiError(500, "Failed to update  please try again");
+  }
+
+  if (updatedUser && avatarToDeleteUrl) {
+    const publicId = avatarToDeleteUrl.split("/").pop().split(".")[0]; // Extract public ID from URL
+    await deleteOnCloudinary(publicId); // Delete the old avatar using Cloudinary's public ID
+  }
+
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "Avatar Changed Successfully."));
+    .json(new ApiResponse(200, updatedUser, "Avatar Changed Successfully."));
 });
 
 // Update User Cover Image
@@ -320,13 +336,26 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Cover Image file is missing");
   }
 
+  // TODO: delete old image - coverImage
+  const user = await User.findById(req.user?._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Extract the public ID from the old Cloudinary URL for deletion
+  const coverImageToDeleteUrl = user.coverImage; // Assuming user.avatar holds the URL of the avatar
+  if (coverImageToDeleteUrl) {
+    const publicId = coverImageToDeleteUrl.split("/").pop().split(".")[0]; // Extract public ID from URL
+    await deleteOnCloudinary(publicId); // Delete the old avatar using Cloudinary's public ID
+  }
+
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!coverImage.url) {
     throw new ApiError(400, "Error While uploading Cover Image");
   }
 
-  const user = await User.findByIdAndUpdate(
+  const updatedUser = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
@@ -340,7 +369,9 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "Cover Image Changed Successfully."));
+    .json(
+      new ApiResponse(200, updatedUser, "Cover Image Changed Successfully.")
+    );
 });
 
 // Get User channel Deatils
