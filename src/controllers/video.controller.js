@@ -132,16 +132,24 @@ const getVideoById = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "comments",
-        localField: "_id",
+        localField: "_id", //current model->video
         foreignField: "video",
         as: "comments",
         pipeline: [
           {
             $lookup: {
               from: "users",
-              localField: "owner",
+              localField: "owner", //current model->comment
               foreignField: "_id",
               as: "commenter",
+            },
+          },
+          {
+            $lookup: {
+              from: "likes",
+              localField: "_id", //current model->video
+              foreignField: "comment",
+              as: "commentsLikes",
             },
           },
           {
@@ -149,6 +157,9 @@ const getVideoById = asyncHandler(async (req, res) => {
               content: 1,
               createdAt: 1,
               commenter: { username: 1, avatar: 1 },
+              commentsLikes: {
+                $size: "$commentsLikes",
+              },
             },
           },
         ],
