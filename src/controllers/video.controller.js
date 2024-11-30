@@ -90,58 +90,71 @@ const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
   if (!isValidObjectId(videoId)) {
-    throw new ApiError(400, "Invalid Video");
+    throw new ApiError(400, "Invalid Video ID");
   }
   if (!isValidObjectId(req.user?._id)) {
-    throw new ApiError(400, "Invalid userId");
+    throw new ApiError(400, "Invalid User ID");
   }
+
   const video = await Video.aggregate([
+    // Match video by ID
     {
       $match: {
         _id: new mongoose.Types.ObjectId(videoId),
       },
     },
+    // Fetch likes with user details
     {
       $lookup: {
         from: "likes",
-        localField: "_id",
+        localField: "_id", //current model->video
         foreignField: "video",
         as: "likes",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "likedBy", //current model->likes
+              foreignField: "_id",
+              as: "userDetails",
+            },
+          },
+          {
+            $project: {
+              likedBy: 1,
+              userDetails: { username: 1, avatar: 1 },
+            },
+          },
+        ],
       },
     },
+    // Fetch comments with commenter details
     {
       $lookup: {
         from: "comments",
         localField: "_id",
-        foreignField: "content",
+        foreignField: "video",
         as: "comments",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "commenter",
+            },
+          },
+          {
+            $project: {
+              content: 1,
+              createdAt: 1,
+              commenter: { username: 1, avatar: 1 },
+            },
+          },
+        ],
       },
     },
-    // {
-    //   $lookup: {
-    //     from: "comments",
-    //     localField: "_id",
-    //     foreignField: "content",
-    //     as: "comments",
-    //     pipeline: [
-    //       {
-    //         $lookup: {
-    //           from: "user",
-    //           localField: "_id",
-    //           foreignField: "fullName",
-    //           as: "name",
-    //         },
-    //       },
-    //       {
-    //         $addFields: {
-    //           comments: {
-    //             $first: "$comments",
-    //           },
-    //         },
-    //       },
-    //     ],
-    //   },
-    // },
+    // Fetch owner details
     {
       $lookup: {
         from: "users",
@@ -159,9 +172,7 @@ const getVideoById = asyncHandler(async (req, res) => {
           },
           {
             $addFields: {
-              subscribersCount: {
-                $size: "$subscribers",
-              },
+              subscribersCount: { $size: "$subscribers" },
               isSubscribed: {
                 $cond: {
                   if: { $in: [req.user?._id, "$subscribers.subscriber"] },
@@ -174,7 +185,7 @@ const getVideoById = asyncHandler(async (req, res) => {
           {
             $project: {
               username: 1,
-              "avatar.url": 1,
+              avatar: 1,
               subscribersCount: 1,
               isSubscribed: 1,
             },
@@ -182,17 +193,12 @@ const getVideoById = asyncHandler(async (req, res) => {
         ],
       },
     },
+    // Add derived fields
     {
       $addFields: {
-        likesCount: {
-          $size: "$likes",
-        },
-        owner: {
-          $first: "$owner",
-        },
-        commentCount: {
-          $size: "$comments",
-        },
+        likesCount: { $size: "$likes" },
+        owner: { $first: "$owner" },
+        commentCount: { $size: "$comments" },
         isLiked: {
           $cond: {
             if: { $in: [req.user?._id, "$likes.likedBy"] },
@@ -202,6 +208,7 @@ const getVideoById = asyncHandler(async (req, res) => {
         },
       },
     },
+    // Project final fields
     {
       $project: {
         "videoFile.url": 1,
@@ -222,24 +229,22 @@ const getVideoById = asyncHandler(async (req, res) => {
     },
   ]);
 
-  if (!video) {
-    throw new ApiError(500, "failed to fetch video");
+  if (!video || video.length === 0) {
+    throw new ApiError(404, "Video not found");
   }
-  await Video.findByIdAndUpdate(videoId, {
-    $inc: {
-      views: 1,
-    },
-  });
-  // add this video to user watch history
+
+  // Increment video views
+  await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
+
+  // Add video to user's watch history
   await User.findByIdAndUpdate(req.user?._id, {
-    $addToSet: {
-      watchHistory: videoId,
-    },
+    $addToSet: { watchHistory: videoId },
   });
 
+  // Respond with video details
   return res
     .status(200)
-    .json(new ApiResponse(200, video[0], "video details fetched successfully"));
+    .json(new ApiResponse(200, video[0], "Video details fetched successfully"));
 });
 
 //TODO: update video details like title, description, thumbnail
