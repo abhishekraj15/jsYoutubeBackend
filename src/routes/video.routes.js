@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   deleteVideo,
   getVideoById,
-  //getAllVideos,
+  getAllVideos,
   //getVideoById,
   publishAVideo,
   togglePublishStatus,
@@ -64,5 +64,6 @@ router
   .patch(verifyJWT, upload.single("thumbnail"), updateVideo);
 router.route("/toggle/publish/:videoId").patch(verifyJWT, togglePublishStatus);
 router.route("/getSingleVideo/:videoId").get(verifyJWT, getVideoById);
+router.route("/gellAllVideos").get(getAllVideos);
 
 export default router;

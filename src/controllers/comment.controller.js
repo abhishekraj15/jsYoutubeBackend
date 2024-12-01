@@ -14,7 +14,6 @@ import { Comment } from "../models/comment.models.js";
 
 const addComment = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  console.log("🚀 ~ addComment ~ videoId:", videoId);
   const { content } = req.body;
 
   if (!content) {

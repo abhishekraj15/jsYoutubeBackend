@@ -80,9 +80,275 @@ const publishAVideo = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, video, "Video Uploaded Successfully"));
 });
 
+const getAllVideos = asyncHandler(async (req, res) => {
+  //TODO: get all videos based on query, sort, pagination - abhis
+  const {
+    page = 1,
+    limit = 10,
+    query = "",
+    sortBy = "createdAt",
+    sortType = "desc",
+    userId,
+  } = req.query;
+
+  const skip = (page - 1) * limit; // How many documents to skip for pagination
+  const sortOrder = sortType.toLowerCase() === "asc" ? 1 : -1; // Convert sortType to 1 (asc) or -1 (desc)
+
+  const matchCondition = {
+    isPublished: true, // Only fetch published videos
+    ...(query && { title: { $regex: query, $options: "i" } }), // Search title if query is provided
+    ...(userId && { owner: new mongoose.Types.ObjectId(userId) }), // Filter by userId if provided
+  };
+
+  const video = await Video.aggregate([
+    {
+      $match: matchCondition,
+    },
+    // fetch likes with user details
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "likes",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "userDetails",
+            },
+          },
+          {
+            $project: {
+              likedBy: 1,
+              userDetails: {
+                username: 1,
+                avatar: 1,
+              },
+            },
+          },
+        ],
+      },
+    },
+    // fetch comments with likes with commenter details
+    {
+      $lookup: {
+        from: "comments",
+        localField: "_id",
+        foreignField: "video",
+        as: "comments",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "commenter",
+            },
+          },
+          {
+            $lookup: {
+              from: "likes",
+              localField: "_id",
+              foreignField: "comment",
+              as: "commentsLikes",
+            },
+          },
+          {
+            $project: {
+              content: 1,
+              createdAt: 1,
+              commenter: {
+                username: 1,
+                avatar: 1,
+              },
+              commentsLikes: {
+                $size: "$commentsLikes",
+              },
+            },
+          },
+        ],
+      },
+    },
+    // fetch owner details
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "subscribers",
+            },
+          },
+          {
+            $addFields: {
+              subscribersCount: {
+                $size: "$subscribers",
+              },
+
+              isSubscribed: {
+                $cond: {
+                  if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                  then: true,
+                  else: false,
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              username: 1,
+              avatar: 1,
+              subscribersCount: 1,
+              isSubscribed: 1,
+            },
+          },
+        ],
+      },
+    },
+    // Add derived fileds
+    {
+      $addFields: {
+        likesCount: { $size: "$likes" },
+        owner: { $first: "$owner" },
+        commentCount: { $size: "$comments" },
+        isLiked: {
+          $cond: {
+            if: { $in: [req.user?._id, "$likes.likedBy"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    // Sort and paginate
+    { $sort: { [sortBy]: sortOrder } },
+    { $skip: skip },
+    { $limit: parseInt(limit, 10) },
+    // final project alll data
+    {
+      $project: {
+        "videoFile.url": 1,
+        "thumbnail.url": 1,
+        title: 1,
+        description: 1,
+        views: 1,
+        createdAt: 1,
+        duration: 1,
+        comments: 1,
+        commentCount: 1,
+        owner: 1,
+        likes: 1,
+        likesCount: 1,
+        isLiked: 1,
+        isPublished: 1,
+      },
+    },
+  ]);
+
+  console.log(video);
+  // Count total videos for pagination
+  const totalVideos = await Video.countDocuments(matchCondition);
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        video,
+        totalVideos,
+        totalPages: Math.ceil(totalVideos / limit),
+        currentPage: parseInt(page, 10),
+      },
+      "Videos fetched successfully"
+    )
+  );
+});
+
 // const getAllVideos = asyncHandler(async (req, res) => {
 //   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
-//   //TODO: get all videos based on query, sort, pagination
+//   //TODO: get all videos based on query, sort, pagination -- vanshi
+//   const pipeline = [];
+//   // Search video by title -> using regex for matching input query
+//   if (query) {
+//     pipeline.push({
+//       $match: {
+//         title: {
+//            $regex: query,
+//           $options: "i",
+//         },
+//       },
+//     });
+//   }
+//   // Search by userId
+//   if (userId) {
+//     if (!isValidObjectId(userId)) {
+//       throw new ApiError(400, "Enter a valid user id");
+//     }
+//     pipeline.push({
+//       $match: {
+//         owner: new mongoose.Types.ObjectId(userId),
+//       },
+//     });
+//   }
+//   // Videos searched should be published
+//   pipeline.push({
+//     $match: {
+//       isPublished: true,
+//     },
+//   });
+//   //Searching
+//   if (sortBy && sortType) {
+//     pipeline.push({
+//       $sort: {
+//         [sortBy]: sortType === "asc" ? 1 : -1, // 1 -> ascending and -1 -> descending order
+//       },
+//     });
+//   } else {
+//     pipeline.push({
+//       $sort: { createdAt: -1 }, // If no sortBy and sort Type is given then videos should be sorted in descending order on the basis of createdAt field
+//     });
+//   }
+//   // Add user details for the video owner
+//   pipeline.push(
+//     {
+//       $lookup: {
+//         from: "users",
+//         localField: "owner",
+//         foreignField: "_id",
+//         as: "ownerDetails",
+//         pipeline: [
+//           {
+//             $project: {
+//               username: 1,
+//               avatar: 1,
+//             },
+//           },
+//         ],
+//       },
+//     },
+//     {
+//       $unwind: "$ownerDetails",
+//     }
+//   );
+//   // Create an aggregation instance
+//   const videoAggregate = Video.aggregate(pipeline);
+//   // Add pagination options
+//   const options = {
+//     page: parseInt(page, 10),
+//     limit: parseInt(limit, 10),
+//   };
+//   // Paginate results
+//   const videos = await Video.aggregatePaginate(videoAggregate, options);
+//   return res
+//     .status(200)
+//     .json(new ApiResponse(200, videos, "Videos fetched successfully"));
 // });
 
 //TODO: get video by id
@@ -439,7 +705,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 });
 
 export {
-  //getAllVideos,
+  getAllVideos,
   publishAVideo,
   getVideoById,
   updateVideo,
