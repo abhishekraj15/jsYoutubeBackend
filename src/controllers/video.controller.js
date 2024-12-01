@@ -80,10 +80,96 @@ const publishAVideo = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, video, "Video Uploaded Successfully"));
 });
 
-// const getAllVideos = asyncHandler(async (req, res) => {
-//   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
-//   //TODO: get all videos based on query, sort, pagination
-// });
+const getAllVideos = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+
+  //TODO: get all videos based on query, sort, pagination
+  const pipeline = [];
+
+  // Search video by title -> using regex for matching input query
+  if (query) {
+    pipeline.push({
+      $match: {
+        title: {
+          query: RegExp,
+          $options: "i",
+        },
+      },
+    });
+  }
+
+  // Search by userId
+  if (userId) {
+    if (!isValidObjectId(userId)) {
+      throw new ApiError(400, "Enter a valid user id");
+    }
+
+    pipeline.push({
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    });
+  }
+
+  // Videos searched should be published
+  pipeline.push({
+    $match: {
+      isPublished: true,
+    },
+  });
+
+  //Searching
+  if (sortBy && sortType) {
+    pipeline.push({
+      $sort: {
+        [sortBy]: sortType === "asc" ? 1 : -1, // 1 -> ascending and -1 -> descending order
+      },
+    });
+  } else {
+    pipeline.push({
+      $sort: { createdAt: -1 }, // If no sortBy and sort Type is given then videos should be sorted in descending order on the basis of createdAt field
+    });
+  }
+
+  // Add user details for the video owner
+  pipeline.push(
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+        pipeline: [
+          {
+            $project: {
+              username: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$ownerDetails",
+    }
+  );
+
+  // Create an aggregation instance
+  const videoAggregate = Video.aggregate(pipeline);
+
+  // Add pagination options
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  };
+
+  // Paginate results
+  const videos = await Video.aggregatePaginate(videoAggregate, options);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, videos, "Videos fetched successfully"));
+});
 
 //TODO: get video by id
 const getVideoById = asyncHandler(async (req, res) => {
@@ -439,7 +525,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 });
 
 export {
-  //getAllVideos,
+  getAllVideos,
   publishAVideo,
   getVideoById,
   updateVideo,
