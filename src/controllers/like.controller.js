@@ -57,9 +57,70 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
 //   //TODO: toggle like on tweet
 // });
 
+// const getLikedVideos = asyncHandler(async (req, res) => {
+//   const { page = 1, limit = 10 } = req.query;
+//   const likedVideosAggegate = await Like.aggregate([
+//     {
+//       $match: {
+//         likedBy: new mongoose.Types.ObjectId(req.user?._id),
+//       },
+//     },
+//     {
+//       $lookup: {
+//         from: "videos",
+//         localField: "video",
+//         foreignField: "_id",
+//         as: "likedVideo",
+//         pipeline: [
+//           {
+//             $lookup: {
+//               from: "users",
+//               localField: "owner",
+//               foreignField: "_id",
+//               as: "ownerDetails",
+//             },
+//           },
+//           {
+//             $unwind: "$ownerDetails",
+//           },
+//         ],
+//       },
+//     },
+//     {
+//       $unwind: "$likedVideo",
+//     },
+//     {
+//       $sort: {
+//         createdAt: -1,
+//       },
+//     },
+//     {
+//       $project: {
+//         _id: 0,
+//         likedVideo: 1,
+//       },
+//     },
+//   ]);
+
+//   const options = {
+//     page: parseInt(page, 10),
+//     limit: parseInt(limit, 10),
+//   };
+
+//   const likedVideos = await Like.aggregatePaginate(
+//     likedVideosAggegate,
+//     options
+//   );
+//   return res
+//     .status(200)
+//     .json(
+//       new ApiResponse(200, likedVideos, "liked videos fetched successfully")
+//     );
+// });
+
 const getLikedVideos = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
-  const likedVideosAggegate = await Like.aggregate([
+  const pipeline = [
     {
       $match: {
         likedBy: new mongoose.Types.ObjectId(req.user?._id),
@@ -71,23 +132,21 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         localField: "video",
         foreignField: "_id",
         as: "likedVideo",
-        pipeline: [
-          {
-            $lookup: {
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "ownerDetails",
-            },
-          },
-          {
-            $unwind: "$ownerDetails",
-          },
-        ],
       },
     },
     {
       $unwind: "$likedVideo",
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "likedVideo.owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+      },
+    },
+    {
+      $unwind: "$ownerDetails",
     },
     {
       $sort: {
@@ -97,16 +156,33 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     {
       $project: {
         _id: 0,
-        likedVideo: 1,
+        likedVideo: {
+          _id: 1,
+          "videoFile.url": 1,
+          "thumbnail.url": 1,
+          owner: 1,
+          title: 1,
+          description: 1,
+          views: 1,
+          duration: 1,
+          createdAt: 1,
+          isPublished: 1,
+          ownerDetails: {
+            username: "$ownerDetails.username",
+            avatar: "$ownerDetails.avatar",
+            fullName: "$ownerDetails.fullName",
+          },
+        },
       },
     },
-  ]);
+  ];
 
   const options = {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
   };
 
+  const likedVideosAggegate = Like.aggregate(pipeline);
   const likedVideos = await Like.aggregatePaginate(
     likedVideosAggegate,
     options
