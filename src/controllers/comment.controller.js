@@ -6,11 +6,70 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Video } from "../models/video.models.js";
 import { Comment } from "../models/comment.models.js";
 
-// const getVideoComments = asyncHandler(async (req, res) => {
-//   //TODO: get all comments for a video
-//   const { videoId } = req.params;
-//   const { page = 1, limit = 10 } = req.query;
-// });
+const getVideoComments = asyncHandler(async (req, res) => {
+  //TODO: get all comments for a video
+  const { videoId } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+
+  const comments = Video.aggregate([
+    {
+      $match: { _id: new mongoose.Types.ObjectId(videoId) },
+    },
+    {
+      $lookup: {
+        from: "comments", // Fetch associated comments
+        localField: "_id",
+        foreignField: "video",
+        as: "comments",
+        pipeline: [
+          {
+            $lookup: {
+              // Fetch commenter details
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "commenter",
+            },
+          },
+          {
+            $lookup: {
+              // Fetch likes associated with comments
+              from: "likes",
+              localField: "_id",
+              foreignField: "comment",
+              as: "likes",
+            },
+          },
+          {
+            $project: {
+              content: 1,
+              createdAt: 1,
+              commenter: { username: 1, avatar: 1 },
+              likeCount: { $size: "$likes" }, // Count the number of likes
+            },
+          },
+        ],
+      },
+    },
+    {
+      $project: {
+        content: 1,
+        createdAt: 1,
+        totalComments: { $size: "$comments" },
+      },
+    },
+  ]);
+
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  };
+
+  const comment = await Video.aggregatePaginate(comments, options);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, comment, "Video Comments fetched successfully"));
+});
 
 const addComment = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
@@ -77,9 +136,4 @@ const deleteComment = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "Commednt Delete Succesfully"));
 });
 
-export {
-  // getVideoComments,
-  addComment,
-  updateComment,
-  deleteComment,
-};
+export { getVideoComments, addComment, updateComment, deleteComment };
