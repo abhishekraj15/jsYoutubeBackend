@@ -18,7 +18,6 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
 
   if (likedAlready) {
     await Like.findByIdAndDelete(likedAlready?._id);
-
     return res.status(200).json(new ApiResponse(200, { isLiked: false }));
   }
 
@@ -58,9 +57,19 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
 //   //TODO: toggle like on tweet
 // });
 
-// const getLikedVideos = asyncHandler(async (req, res) => {
-//   //TODO: get all liked videos
-// });
+const getLikedVideos = asyncHandler(async (req, res) => {
+  //TODO: get all liked videos
+  const likeVideos = await Like.aggregate([
+    {
+      $lookup:{
+        from:"videos",
+        localField:"video",
+        foreignField:"_id",
+        as:"likeVideos"
+      }
+    }
+  ])
+});
 
 export {
   toggleCommentLike,
