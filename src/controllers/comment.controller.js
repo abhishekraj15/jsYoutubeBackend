@@ -11,61 +11,61 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   const { page = 1, limit = 10 } = req.query;
 
-  const comments = Video.aggregate([
+  const commentsAggregate = Comment.aggregate([
     {
-      $match: { _id: new mongoose.Types.ObjectId(videoId) },
+      $match: { video: new mongoose.Types.ObjectId(videoId) },
     },
     {
       $lookup: {
-        from: "comments", // Fetch associated comments
-        localField: "_id",
-        foreignField: "video",
-        as: "comments",
-        pipeline: [
-          {
-            $lookup: {
-              // Fetch commenter details
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "commenter",
-            },
-          },
-          {
-            $lookup: {
-              // Fetch likes associated with comments
-              from: "likes",
-              localField: "_id",
-              foreignField: "comment",
-              as: "likes",
-            },
-          },
-          {
-            $project: {
-              content: 1,
-              createdAt: 1,
-              commenter: { username: 1, avatar: 1 },
-              likeCount: { $size: "$likes" }, // Count the number of likes
-            },
-          },
-        ],
+        // Fetch commenter details
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "commenter",
       },
+    },
+    {
+      $lookup: {
+        // Fetch likes associated with comments
+        from: "likes",
+        localField: "_id",
+        foreignField: "comment",
+        as: "likes",
+      },
+    },
+    {
+      $addFields: {
+        likesCount: { $size: "$likes" },
+        owner: { $first: "$commenter" }, 
+        isLiked: {
+          $cond: {
+            if: { $in: [req.user?._id, "$likes.likedBy"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $sort: { createdAt: -1 }, 
     },
     {
       $project: {
         content: 1,
         createdAt: 1,
-        totalComments: { $size: "$comments" },
+        commenter: { username: 1, avatar: 1 },
+        likeCount: { $size: "$likes" }, 
+        isLiked: 1
       },
-    },
-  ]);
+  }])
+       
 
   const options = {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
   };
 
-  const comment = await Video.aggregatePaginate(comments, options);
+  const comment = await Comment.aggregatePaginate(commentsAggregate, options);
   return res
     .status(200)
     .json(new ApiResponse(200, comment, "Video Comments fetched successfully"));
