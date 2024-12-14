@@ -1,20 +1,20 @@
-// import { Router } from "express";
-// import {
+import { Router } from "express";
+import {
 //   addVideoToPlaylist,
-//   createPlaylist,
+  createPlaylist,
 //   deletePlaylist,
 //   getPlaylistById,
 //   getUserPlaylists,
 //   removeVideoFromPlaylist,
 //   updatePlaylist,
-// } from "../controllers/playlist.controller.js";
-// import { verifyJWT } from "../middlewares/auth.middleware.js";
+} from "../controllers/playlist.controller.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 
-// const router = Router();
+const router = Router();
 
-// router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
+router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
 
-// router.route("/").post(createPlaylist);
+router.route("/").post(createPlaylist);
 
 // router
 //   .route("/:playlistId")
@@ -27,4 +27,4 @@
 
 // router.route("/user/:userId").get(getUserPlaylists);
 
-// export default router;
+export default router;

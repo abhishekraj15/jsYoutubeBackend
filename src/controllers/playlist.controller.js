@@ -1,14 +1,34 @@
-// import mongoose, { isValidObjectId } from "mongoose";
-// import { Playlist } from "../models/playlist.model.js";
-// import { ApiError } from "../utils/ApiError.js";
-// import { ApiResponse } from "../utils/ApiResponse.js";
-// import { asyncHandler } from "../utils/asyncHandler.js";
+import mongoose, { isValidObjectId } from "mongoose";
+import { Playlist } from "../models/playlist.models.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-// const createPlaylist = asyncHandler(async (req, res) => {
-//   const { name, description } = req.body;
+const createPlaylist = asyncHandler(async (req, res) => {
+  const { name, description } = req.body;
 
-//   //TODO: create playlist
-// });
+  //TODO: create playlist
+  if ([name, description].some((field) => field?.trim() === "")) {
+    throw new ApiError(400, "All Fields are required");
+  }
+
+  const existingPlaylist = await Playlist.findOne({
+    name: new RegExp(`^${name}$`, "i"),
+  });
+  if (existingPlaylist) {
+    throw new ApiError(409, "Playlist already exists with this name");
+  }
+
+  const playlist = await Playlist.create({
+    name: name,
+    description: description,
+    owner: req.user._id,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, playlist, "Playlist created successfully"));
+});
 
 // const getUserPlaylists = asyncHandler(async (req, res) => {
 //   const { userId } = req.params;
@@ -40,12 +60,12 @@
 //   //TODO: update playlist
 // });
 
-// export {
-//   createPlaylist,
+export {
+  createPlaylist,
 //   getUserPlaylists,
 //   getPlaylistById,
 //   addVideoToPlaylist,
 //   removeVideoFromPlaylist,
 //   deletePlaylist,
 //   updatePlaylist,
-// };
+};
