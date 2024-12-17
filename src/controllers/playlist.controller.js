@@ -83,6 +83,10 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid Playlist ID");
   }
+  const existingPlaylist = await Playlist.findById(playlistId);
+  if (!existingPlaylist) {
+    throw new ApiError(404, "Playlist not found");
+  }
 
   //TODO: get playlist by id
   const playlist = await Playlist.aggregate([
@@ -100,7 +104,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
       },
     },
     {
-      "$videos.isPublished": true,
+      $match: { "videos.isPublished": true },
     },
     {
       $lookup: {
