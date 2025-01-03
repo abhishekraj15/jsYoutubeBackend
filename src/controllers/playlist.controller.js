@@ -80,6 +80,8 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 
 const getPlaylistById = asyncHandler(async (req, res) => {
   const { playlistId } = req.params;
+  console.log("🚀 ~ getPlaylistById ~ playlistId:", playlistId);
+
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid Playlist ID");
   }
