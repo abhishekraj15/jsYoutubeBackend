@@ -28,7 +28,7 @@ app.use(express.static("public"));
 
 app.use(cookieParser());
 
-// routes import
+// routes import part
 import userRouter from "./routes/user.routes.js";
 import healthcheckRouter from "./routes/healthcheck.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
@@ -38,7 +38,7 @@ import likeRouter from "./routes/like.routes.js";
 import playlistRouter from "./routes/playlist.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 
-//route decleartion
+//route decleartion part
 app.use("/api/v1/users", userRouter);
 
 app.use("/api/v1/healthcheck", healthcheckRouter);
