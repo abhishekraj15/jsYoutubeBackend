@@ -39,7 +39,7 @@ Install my-project with npm
 Clone the Repository
 
 ```bash
-[https://github.com/vanshikaRaj11/Youtube.git](https://github.com/abhishekraj15/jsYoutubeBackend)
+(https://github.com/abhishekraj15/jsYoutubeBackend)
 ```
 Install dependencies
 
